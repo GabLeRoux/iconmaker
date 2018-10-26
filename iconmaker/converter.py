@@ -1,13 +1,19 @@
-import subprocess, os, tempfile, requests, struct
+import os
+import struct
+import subprocess
+import tempfile
+
+import requests
 
 try:
-    from cStringIO import StringIO
-except:
+    # noinspection PyCompatibility
     from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
-from utils import check_and_get_image_sizes, which, image_mode_to_bit_depth
-from logger import logging
-from exceptions import ConversionError, ImageError
+from .utils import which, image_mode_to_bit_depth
+from .logger import logging
+from .exceptions import ConversionError, ImageError
 from PIL import Image
 
 FORMAT_PNG = 'png'
@@ -19,15 +25,13 @@ FORMAT_JPG2 = 'jpeg'
 SUPPORTED_SIZES_ICNS = [16, 32, 48, 128, 256, 512, 1024]
 
 
-def is_size_convertible_to_icon(size_width, 
-                                size_height, 
-                                target_format):
+def is_size_convertible_to_icon(size_width, size_height, target_format):
     """Check whether an image of a given size is convertible to an icon format.
-    
+
     :param size_width: Width of the image.
     :param size_height: Height of the image.
     :param target_format: Target icon format.
-    :returns: 
+    :returns:
         ``True`` if the image can be converted to the given target icon format
         otherwise ``False``.
     """
@@ -35,10 +39,10 @@ def is_size_convertible_to_icon(size_width,
     # Sizes are constrainted by format.
     if target_format == FORMAT_ICO:
         # The dimensions of the icons must in the range of [1 ; 256].
-        if ((size_width < 1) or 
-            (size_width > 256) or 
-            (size_height < 1) or 
-            (size_height > 256)):
+        if ((size_width < 1) or
+                (size_width > 256) or
+                (size_height < 1) or
+                (size_height > 256)):
             return False
     elif target_format == FORMAT_ICNS:
         # ICNS requires quadratic input images.
@@ -86,29 +90,29 @@ class Converter(object):
 
         # check and/or find the correct file locations
         if not (os.path.isfile(Converter.PNG2ICNS)
-            or os.access(Converter.PNG2ICNS, os.X_OK)):
+                or os.access(Converter.PNG2ICNS, os.X_OK)):
             self.png2icns = which(os.path.basename(Converter.PNG2ICNS))
             if not self.png2icns:
                 raise Exception("Unable to locate png2icns binary: %s" %
-                    Converter.PNG2ICNS)
+                                Converter.PNG2ICNS)
         else:
             self.png2icns = Converter.PNG2ICNS
 
         if not (os.path.isfile(Converter.ICNS2PNG)
-            or os.access(Converter.ICNS2PNG, os.X_OK)):
+                or os.access(Converter.ICNS2PNG, os.X_OK)):
             self.icns2png = which(os.path.basename(Converter.ICNS2PNG))
             if not self.icns2png:
                 raise Exception("Unable to locate icns2png binary: %s" %
-                    Converter.ICNS2PNG)
+                                Converter.ICNS2PNG)
         else:
             self.icns2png = Converter.ICNS2PNG
 
         if not (os.path.isfile(Converter.CONVERTTOOL)
-            or os.access(Converter.CONVERTTOOL, os.X_OK)):
+                or os.access(Converter.CONVERTTOOL, os.X_OK)):
             self.converttool = which(os.path.basename(Converter.CONVERTTOOL))
             if not self.converttool:
                 raise Exception("Unable to locate image conversion tool: %s" %
-                    Converter.CONVERTTOOL)
+                                Converter.CONVERTTOOL)
         else:
             self.converttool = Converter.CONVERTTOOL
 
@@ -122,39 +126,37 @@ class Converter(object):
 
         # Get the image.
         response = requests.get(url)
-        response.raise_for_status(allow_redirects = False)
+        response.raise_for_status()
 
         # Save the image.
         try:
             im = Image.open(StringIO(response.content))
-        except IOError, e:
+        except IOError as e:
             raise ImageError('Error opening image: %s %s' % (url, str(e)))
 
         image_format = im.format.lower()
         if image_format not in Converter.SUPPORTED_SOURCE_FORMATS:
             raise ImageError('The source file is not of a supported format.'
-                'Supported formats are: %s' % (
-                ', '.join(Converter.SUPPORTED_SOURCE_FORMATS)))
+                             'Supported formats are: %s' % (
+                                 ', '.join(Converter.SUPPORTED_SOURCE_FORMATS)))
 
         # generate temp filename for it
         saved_file = tempfile.NamedTemporaryFile(
-                        prefix='downloaded_',
-                        suffix='.' + image_format,
-                        delete=False)
+            prefix='downloaded_',
+            suffix='.' + image_format,
+            delete=False)
         saved_filename = saved_file.name
 
         logging.debug('Fetching image to: %s' % (saved_filename))
 
         try:
             im.save(saved_filename)
-        except IOError, e:
+        except IOError as e:
             raise ImageError('Error saving image: %s %s' % (url, str(e)))
 
         return saved_filename
 
-    def verify_generated_icon(self,
-                              target_format,
-                              result_path):
+    def verify_generated_icon(self, target_format, result_path):
         """Verify the target (ICO or ICNS) image.
 
         :param target_format: Target icon format.
@@ -195,11 +197,7 @@ class Converter(object):
 
         return False
 
-    def resize_image(self,
-                     image_path,
-                     image_width,
-                     image_height,
-                     transparency):
+    def resize_image(self, image_path, image_width, image_height, transparency):
         """Resize image.
 
         :param image_path: Path to the source icon.
@@ -214,27 +212,27 @@ class Converter(object):
         """
 
         resized_file = tempfile.NamedTemporaryFile(
-                    prefix='resized_',
-                    suffix='.' + os.path.splitext(image_path)[1][1:],
-                    delete=False)
+            prefix='resized_',
+            suffix='.' + os.path.splitext(image_path)[1][1:],
+            delete=False)
         resized_path = resized_file.name
 
         # Adding transparency to make a square image
         if transparency:
             args_string = "%s %s -gravity center -background transparent " \
-                            "-extent %dx%d %s" % (self.converttool,
-                                        image_path,
-                                        image_width,
-                                        image_height,
-                                        resized_path)
+                          "-extent %dx%d %s" % (self.converttool,
+                                                image_path,
+                                                image_width,
+                                                image_height,
+                                                resized_path)
         # Resizing square image to the closest supported size
         else:
             args_string = "%s %s -resize %dx%d %s" % (
-                                        self.converttool,
-                                        image_path,
-                                        image_width,
-                                        image_height,
-                                        resized_path)
+                self.converttool,
+                image_path,
+                image_width,
+                image_height,
+                resized_path)
 
         args = args_string.split()
 
@@ -242,19 +240,14 @@ class Converter(object):
 
         try:
             subprocess.check_output(args,
-                                    stderr = subprocess.STDOUT)
-        except subprocess.CalledProcessError, e:
+                                    stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
             raise ConversionError('Failed to resize image %s' % (e.output))
 
         return resized_path
 
-    def fix_image_size(self,
-                       image_dict,
-                       image_path,
-                       image_width,
-                       image_height,
-                       target_format):
-        """Fix image size to the specifications of the target container icon 
+    def fix_image_size(self, image_dict, image_path, image_width, image_height, target_format):
+        """Fix image size to the specifications of the target container icon
             format.
 
         :param image_dict: Dictionary of sizes and image path mappings.
@@ -264,7 +257,7 @@ class Converter(object):
         :param target_format: Target icon format.
 
         :returns:
-            ``Tuple`` consisting of fixed image, new width, new size or 
+            ``Tuple`` consisting of fixed image, new width, new size or
             ``None`` if the would be fixed image already exists
         """
 
@@ -274,9 +267,9 @@ class Converter(object):
             # otherwise add transparency to smaller side
             if image_width != image_height:
                 logging.debug('Non square icon: %d:%d -> %d:%d' % (
-                    image_width, 
-                    image_height, 
-                    max(image_width, image_height), 
+                    image_width,
+                    image_height,
+                    max(image_width, image_height),
                     max(image_width, image_height)))
 
                 image_width = image_height = max(image_width, image_height)
@@ -296,14 +289,14 @@ class Converter(object):
             if image_width not in SUPPORTED_SIZES_ICNS:
                 # get the closest supported size
                 closest = min(enumerate(SUPPORTED_SIZES_ICNS),
-                    key=lambda x: abs(x[1] - image_width))[1]
+                              key=lambda x: abs(x[1] - image_width))[1]
 
                 logging.debug('Non supported size: '
-                    '%d:%d -> %d:%d' % (
-                    image_width,
-                    image_height,
-                    closest,
-                    closest))
+                              '%d:%d -> %d:%d' % (
+                                  image_width,
+                                  image_height,
+                                  closest,
+                                  closest))
 
                 image_width = image_height = closest
 
@@ -334,7 +327,7 @@ class Converter(object):
         if image_path_orig == image_path:
             return None
         else:
-            return (image_path, image_width, image_height)
+            return image_path, image_width, image_height
 
     def convert_to_png32(self,
                          source_path,
@@ -351,17 +344,17 @@ class Converter(object):
         # Perform the conversion.
         try:
             subprocess.check_output([
-                    self.converttool,
-                    source_path,
-                    'png32:%s' % (target_path)
-                ], stderr = subprocess.STDOUT)
-        except subprocess.CalledProcessError, e:
+                self.converttool,
+                source_path,
+                'png32:%s' % (target_path)
+            ], stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
             raise ConversionError('Failed to convert input file to 32-bit PNG: %s' % (
                 e.output))
 
-    def convert(self, 
-                image_list, 
-                target_format, 
+    def convert(self,
+                image_list,
+                target_format,
                 target_path):
         """Convert a list of image files to an ico/icns file.
 
@@ -386,17 +379,17 @@ class Converter(object):
         local_image_list = []
         for image_location in image_list:
             if ((image_location.startswith("http:")) or
-                (image_location.startswith("https:"))):
+                    (image_location.startswith("https:"))):
 
                 # Skip invalid/corrupt URLs
                 try:
                     image_location = self.fetch_image(image_location)
-                except requests.exceptions.HTTPError, e:
+                except requests.exceptions.HTTPError as e:
                     err = 'Could not retrieve image: %s' % str(e)
                     self.notices.append(err)
                     logging.debug(err)
                     continue
-                except ImageError, e:
+                except ImageError as e:
                     err = 'Could not save image: %s' % str(e)
                     self.notices.append(err)
                     logging.debug(err)
@@ -411,7 +404,7 @@ class Converter(object):
                 logging.debug('converting input GIF/JPG image to 32-bit PNG: %s' % (
                     image_location))
                 image_location_png = "%s.%s" % (image_base, FORMAT_PNG)
-                self.convert_to_png32(image_location, 
+                self.convert_to_png32(image_location,
                                       image_location_png)
                 image_location = image_location_png
 
@@ -421,23 +414,23 @@ class Converter(object):
         image_list = []
 
         for image_path in local_image_list:
-            # Skip past the image if the bit depth is greater than or equal to 
+            # Skip past the image if the bit depth is greater than or equal to
             # 24 bits, which we're certain that png2icns handles well.
             image = Image.open(image_path)
             image_bit_depth = image_mode_to_bit_depth(image.mode)
-            
+
             if image_bit_depth >= 24:
                 image_list.append(image_path)
                 continue
-            
+
             # Convert the PNG file to 32 bit if we're below 24 bit.
             deeper_file = tempfile.NamedTemporaryFile(
-                prefix = 'deeper_',
-                suffix = '.png', 
-                delete = False)
+                prefix='deeper_',
+                suffix='.png',
+                delete=False)
             deeper_filename = deeper_file.name
 
-            self.convert_to_png32(image_path, 
+            self.convert_to_png32(image_path,
                                   deeper_filename)
             image_list.append(deeper_filename)
 
@@ -460,10 +453,10 @@ class Converter(object):
                                                target_format):
 
                 fixed_image_tuple = self.fix_image_size(image_dict,
-                                                     image_path,
-                                                     image_width,
-                                                     image_height,
-                                                     target_format)
+                                                        image_path,
+                                                        image_width,
+                                                        image_height,
+                                                        target_format)
 
                 if fixed_image_tuple:
                     (resized_path, resized_width, resized_height) = fixed_image_tuple
@@ -489,9 +482,9 @@ class Converter(object):
 
         # Verify libicns' bogus errors
         try:
-            subprocess.check_output(args, 
-                                    stderr = subprocess.STDOUT)
-        except subprocess.CalledProcessError, e:
+            subprocess.check_output(args,
+                                    stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
             if not self.verify_generated_icon(target_format, target_path):
                 raise ConversionError('Failed to create container icon: %s: %s' % (
                     target_format, e.output))
