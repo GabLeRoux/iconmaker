@@ -2,6 +2,9 @@
 
 Python3 tool for converting icons from `GIF` or `PNG` images to `ICO` or `ICNS` icon container formats.
 
+[![Build Status](https://travis-ci.com/GabLeRoux/iconmaker.svg?branch=master)](https://travis-ci.com/GabLeRoux/iconmaker)
+[![codecov](https://codecov.io/gh/GabLeRoux/iconmaker/branch/master/graph/badge.svg)](https://codecov.io/gh/GabLeRoux/iconmaker)
+
 ## Usage
 
 The `iconmaker` library provides a single class, `Converter` for dealing with conversions. Input files must be in either `CompuServe GIF` or `PNG` format.
