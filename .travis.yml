@@ -21,5 +21,5 @@ jobs:
     - docker
     script:
     - docker-compose build
-    - docker-compose run --rm python nosetests --with-coverage
+    - docker-compose run --rm python nosetests -c nose_setup_coverage.cfg
     - bash <(curl -s https://codecov.io/bash)
