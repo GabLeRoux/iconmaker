@@ -11,10 +11,11 @@ try:
 except ImportError:
     from io import StringIO
 
+from PIL import Image
+
 from .utils import which, image_mode_to_bit_depth
 from .logger import logging
 from .exceptions import ConversionError, ImageError
-from PIL import Image
 
 FORMAT_PNG = 'png'
 FORMAT_GIF = 'gif'
@@ -147,7 +148,7 @@ class Converter(object):
             delete=False)
         saved_filename = saved_file.name
 
-        logging.debug('Fetching image to: %s' % (saved_filename))
+        logging.debug('Fetching image to: %s' % saved_filename)
 
         try:
             im.save(saved_filename)
@@ -236,7 +237,7 @@ class Converter(object):
 
         args = args_string.split()
 
-        logging.debug('Conversion call arguments: %r' % (args))
+        logging.debug('Conversion call arguments: %r' % args)
 
         try:
             subprocess.check_output(args,
@@ -276,8 +277,7 @@ class Converter(object):
 
                 # check if the corrected size doesn't already exist
                 if not (image_width, image_height) in image_dict:
-                    logging.debug('Resizing with transparency: %s' % (
-                        image_path))
+                    logging.debug('Resizing with transparency: %s' % image_path)
 
                     image_path = self.resize_image(image_path,
                                                    image_width,
@@ -302,8 +302,7 @@ class Converter(object):
 
                 # the corrected size doesn't already exist
                 if not (image_width, image_height) in image_dict:
-                    logging.debug('Resizing without transparency: %s' % (
-                        image_path))
+                    logging.debug('Resizing without transparency: %s' % image_path)
 
                     image_path = self.resize_image(image_path,
                                                    image_width,
@@ -346,11 +345,10 @@ class Converter(object):
             subprocess.check_output([
                 self.converttool,
                 source_path,
-                'png32:%s' % (target_path)
+                'png32:%s' % target_path
             ], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            raise ConversionError('Failed to convert input file to 32-bit PNG: %s' % (
-                e.output))
+            raise ConversionError('Failed to convert input file to 32-bit PNG: %s' % e.output)
 
     def convert(self,
                 image_list,
@@ -401,11 +399,9 @@ class Converter(object):
             image_extension = image_extension[1:]
 
             if image_extension in [FORMAT_GIF, FORMAT_JPG, FORMAT_JPG2]:
-                logging.debug('converting input GIF/JPG image to 32-bit PNG: %s' % (
-                    image_location))
+                logging.debug('converting input GIF/JPG image to 32-bit PNG: %s' % image_location)
                 image_location_png = "%s.%s" % (image_base, FORMAT_PNG)
-                self.convert_to_png32(image_location,
-                                      image_location_png)
+                self.convert_to_png32(image_location, image_location_png)
                 image_location = image_location_png
 
             local_image_list.append(image_location)
@@ -430,8 +426,7 @@ class Converter(object):
                 delete=False)
             deeper_filename = deeper_file.name
 
-            self.convert_to_png32(image_path,
-                                  deeper_filename)
+            self.convert_to_png32(image_path, deeper_filename)
             image_list.append(deeper_filename)
 
         # Ensure that all image files have sizes compatible with the output
@@ -445,7 +440,7 @@ class Converter(object):
 
         image_list = []
         resized_images = {}
-        for (image_size, image_path) in image_dict.iteritems():
+        for (image_size, image_path) in image_dict.items():
             (image_width, image_height) = image_size
 
             if not is_size_convertible_to_icon(image_width,
@@ -468,22 +463,22 @@ class Converter(object):
                 image_list.append(image_path)
 
         # Execute conversion command.
-        logging.debug('Target path: %r' % (target_path))
-        logging.debug('Image list: %r' % (image_list))
+        logging.debug('Target path: %r' % target_path)
+        logging.debug('Image list: %r' % image_list)
 
+        args = []
         if target_format == FORMAT_ICNS:
             args = [self.png2icns, target_path] + image_list
         elif target_format == FORMAT_ICO:
             args = [self.converttool] + image_list + [target_path]
 
-        logging.debug('Conversion call arguments: %r' % (args))
+        logging.debug('Conversion call arguments: %r' % args)
         logging.debug('Conversion call: %s' % (
             ' '.join(['"%s"' % (a) if ' ' in a else a for a in args])))
 
         # Verify libicns' bogus errors
         try:
-            subprocess.check_output(args,
-                                    stderr=subprocess.STDOUT)
+            subprocess.check_output(args, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             if not self.verify_generated_icon(target_format, target_path):
                 raise ConversionError('Failed to create container icon: %s: %s' % (

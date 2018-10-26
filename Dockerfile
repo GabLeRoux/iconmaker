@@ -7,7 +7,8 @@ RUN apt-get update \
 	imagemagick \
 	icnsutils
 
-RUN pip -r requirements.txt
+ADD requirements.txt .
+
+RUN pip install -r requirements.txt
 
 ADD . .
-
